@@ -27,6 +27,12 @@ AI agents that play by reading the DOM. **No install.** It's a website.
 > bridge so LLM agents can join a match and play with the same inputs you have.
 > Same recipe, fewer polygons, suspiciously low price.
 
+> [!WARNING]
+> **This is the one-shot build, kept as-is for the record.** It came out of a single prompt and
+> about two hours of uninterrupted work (see [how it was one-shotted](#-how-it-was-one-shotted)).
+> Play-testing turned up a long list of problems, summarised in the [post-mortem](#-post-mortem).
+> The few-shot rebuild that fixes them lives in **[Toddoward/lowbudget-r6s](https://github.com/Toddoward/lowbudget-r6s)**.
+
 ---
 
 ## 📦 Contents
@@ -40,7 +46,8 @@ AI agents that play by reading the DOM. **No install.** It's a website.
 - [Run it locally](#-run-it-locally)
 - [Deploy to Cloudflare](#-deploy-to-cloudflare)
 - [How it works](#-how-it-works)
-- [Known limitations](#-known-limitations)
+- [Post-mortem](#-post-mortem)
+- [How it was one-shotted](#-how-it-was-one-shotted)
 
 ---
 
@@ -268,13 +275,23 @@ tools/          CLI-Anything asset pipeline, tests, agent example
 
 ---
 
-## 🩹 Known limitations
+## 🩻 Post-mortem
 
-- The House layout was rebuilt from the room list and memory of the original, so proportions are
-  approximate. The reference video and Sketchfab model weren't available while building this.
-- The screenshots come from a software renderer with no GPU, so treat them as a preview.
-  Weaker GPUs automatically drop quality (High → Medium → Low).
-- Mouse and keyboard only. Pointer lock is required, so there's no mobile support.
+What play-testing found in the one-shot build. Numbers match the original issue list;
+🔎 marks problems found later in code review.
+
+| Area | What's wrong |
+|---|---|
+| **Input** | **1** Chrome shortcuts fire mid-match (new tab, close tab). 🔎 Root cause: crouch is also bound to <kbd>Ctrl</kbd>, so <kbd>Ctrl</kbd>+<kbd>W</kbd>/<kbd>T</kbd>/<kbd>N</kbd> reach the browser.<br>**2** The cursor lock doesn't follow the game state. On death or in menus, the cursor isn't released for clicking UI, and getting back into the game takes an extra click.<br>**23** Keys are spread far apart, gadgets need too many presses, nothing adapts to context (stance or what you're looking at), and keys can't be rebound. |
+| **Level** | **3** Wrong scale and proportions; hard walls, soft walls and barricades look alike. 🔎 The layout was an invented 16 × 14 m grid with 3 m floors, not derived from the reference model.<br>**5** No drone vents, and no gap under door barricades.<br>**7** Render meshes and colliders disagree, so bullets stop on thin air.<br>**13** You can't vault through a hole you blew in a wall.<br>**14** Vaulting isn't generic. It should work on anything under a height limit: climb over thin objects, climb on top of deep ones.<br>**15** A soft wall can't be reinforced once it's been shot open. Only a reinforced wall that Thermite breached should be lost for good. |
+| **Gunplay** | **4** Leaning with Q/E moves the sight off the bullet line.<br>**16** Some optics are covered by the gun model (MP5K, MP7, L85A1, …).<br>**17** Red dots are pinned to the screen instead of being collimated, so the dot and the bullet disagree.<br>**18** Pistol iron sights: the rear notch is blocked and the front post has no glow dot. |
+| **Drone** | **6** The jump is too weak to hop door frames or climb onto props.<br>**8** You can't ping enemies.<br>**9 · 22** The night feed is too dark to scout with, and the drone view should be brighter in general. |
+| **AI** | **10** A bot's first shot always hits. |
+| **UI / UX** | **12** The HUD is crude and leaves out information you need.<br>**19** Hands and guns lack detail, there are no equip or switch animations, and gadgets give no feedback (Bandit's battery has no sparks and no buzz).<br>**20** The UI is English-only, and match-state transitions feel abrupt.<br>**25** The main menu's structure and depth are confusing.<br>**26** The name is too close to the original. It needs its own identity (R6S: TEMU / LOWBUDGET).<br>**27** There were no end-to-end UX scenarios (menu → match, state handling, attack and defense per role). |
+| **Content** | **21** IQ, Montagne, Blitz, Kapkan and Tachanka are missing. |
+| **Product** | **11** Agents, local or cloud, are meant to be able to join and play. Keep that, but don't let it clutter the human UI.<br>**24** QA tools (local agent slots, same-browser transport, debug overlays) ship in production. They belong on a develop branch. |
+| **Net** 🔎 | A dropped WebSocket isn't retried, so you're removed from the match immediately.<br>Hits and kills come from clients and are relayed as-is, so a modified client can claim any kill.<br>There are only 10,000 room codes (`R6-0000`…`R6-9999`): collisions, and rooms anyone can guess. |
+| **Platform** | Mouse and keyboard only, and pointer lock is required, so there's no mobile support. The screenshots come from a software renderer. |
 
 ---
 
@@ -282,3 +299,19 @@ tools/          CLI-Anything asset pipeline, tests, agent example
 <sub>Not affiliated with Ubisoft. "Rainbow Six Siege" and the operator names belong to their owners.
 This is a non-commercial fan tribute with original low-poly assets. Please don't send us to customs. 📦</sub>
 </div>
+
+---
+
+## 📼 How it was one-shotted
+
+One prompt in, a deployable game out: **2 h 02 m** of uninterrupted work, **172** tool calls,
+**5** commits, and no follow-up prompts. The image below replays the session in a Claude-style
+dark chat. The prompt is collapsed by default.
+
+<p align="center"><img src="docs/oneshot/oneshot_chat_en_short.png" alt="One-shot session: prompt (collapsed) and the uninterrupted work timeline" width="760"></p>
+
+<details>
+<summary><b>Show more</b>: the full prompt</summary>
+<br>
+<p align="center"><img src="docs/oneshot/oneshot_chat_en_full.png" alt="One-shot session with the full prompt expanded" width="760"></p>
+</details>
